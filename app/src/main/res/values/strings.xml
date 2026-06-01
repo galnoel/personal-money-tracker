@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Money Tracker</string>
+    <string name="widget_description">Quick add transactions from your homescreen</string>
+</resources>
