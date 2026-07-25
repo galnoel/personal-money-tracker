@@ -3,7 +3,6 @@ package com.tracker.ui.quickinput
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -15,6 +14,13 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import com.tracker.ui.MainActivity
 import com.tracker.ui.theme.MoneyTrackerTheme
+import com.tracker.ui.theme.Primary
+import com.tracker.domain.model.UserPreferences
+import com.tracker.domain.repository.PreferencesRepository
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color as ComposeColor
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,11 +28,12 @@ import javax.inject.Inject
 class QuickInputActivity : ComponentActivity() {
     @Inject
     lateinit var supabase: SupabaseClient
+    @Inject lateinit var preferencesRepository: PreferencesRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        configureBlurredBackdrop()
+        configureBackdrop()
 
         lifecycleScope.launch {
             supabase.auth.awaitInitialization()
@@ -42,7 +49,15 @@ class QuickInputActivity : ComponentActivity() {
             }
 
             setContent {
-                MoneyTrackerTheme {
+                val preferences by preferencesRepository.preferences.collectAsStateWithLifecycle(
+                    initialValue = UserPreferences()
+                )
+                val accent = remember(preferences.accentHex) {
+                    runCatching {
+                        ComposeColor(android.graphics.Color.parseColor(preferences.accentHex))
+                    }.getOrDefault(Primary)
+                }
+                MoneyTrackerTheme(accent = accent) {
                     QuickInputScreen(
                         onDismiss = { finish() }
                     )
@@ -51,17 +66,12 @@ class QuickInputActivity : ComponentActivity() {
         }
     }
 
-    private fun configureBlurredBackdrop() {
+    private fun configureBackdrop() {
         window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
 
         val attributes = window.attributes
         attributes.dimAmount = 0.45f
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            attributes.blurBehindRadius = 28
-        }
 
         window.attributes = attributes
     }

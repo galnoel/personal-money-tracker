@@ -3,8 +3,13 @@ package com.tracker.domain.repository
 import com.tracker.domain.model.CategoryTotal
 import com.tracker.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import com.tracker.domain.model.SyncStatus
 
 interface TransactionRepository {
+    val syncStatus: StateFlow<SyncStatus>
+    fun notifySyncPending()
+    fun notifySyncOffline()
     fun getAllTransactions(): Flow<List<Transaction>>
     fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<Transaction>>
     fun getTotalIncomeByDateRange(startDate: Long, endDate: Long): Flow<Long>
@@ -16,4 +21,5 @@ interface TransactionRepository {
     suspend fun updateTransaction(transaction: Transaction)
     suspend fun deleteTransaction(id: Long)
     suspend fun refresh()
+    suspend fun clearLocalCache()
 }

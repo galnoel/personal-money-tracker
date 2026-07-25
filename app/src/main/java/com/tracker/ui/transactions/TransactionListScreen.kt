@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -33,12 +34,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.domain.model.TransactionType
-import com.tracker.ui.components.GlassCard
+import com.tracker.domain.model.Transaction
+import com.tracker.ui.components.NeumorphicCard
 import com.tracker.ui.dashboard.TransactionItem
 import com.tracker.ui.theme.ExpenseRed
 import com.tracker.ui.theme.IncomeGreen
@@ -67,7 +72,7 @@ fun TransactionListScreen(
     val monthLabel = state.selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
     val income = state.transactions.filter { it.type == TransactionType.IN }.sumOf { it.amount }
     val expense = state.transactions.filter { it.type == TransactionType.OUT }.sumOf { it.amount }
-    val background = Brush.verticalGradient(listOf(Color(0xFFE8EDFF), LightBackground))
+    var pendingDelete by remember { mutableStateOf<Transaction?>(null) }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -81,7 +86,7 @@ fun TransactionListScreen(
         }
     ) { scaffoldPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().background(background),
+            modifier = Modifier.fillMaxSize().background(LightBackground),
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
@@ -104,7 +109,7 @@ fun TransactionListScreen(
             }
 
             item {
-                GlassCard(Modifier.fillMaxWidth()) {
+                NeumorphicCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
@@ -143,7 +148,8 @@ fun TransactionListScreen(
                                 TransactionReportPrinter.print(
                                     context,
                                     state.selectedMonth,
-                                    state.transactions
+                                    state.transactions,
+                                    state.currencyCode
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -166,7 +172,7 @@ fun TransactionListScreen(
                 }
 
                 state.errorMessage != null -> item {
-                    GlassCard(Modifier.fillMaxWidth()) {
+                    NeumorphicCard(Modifier.fillMaxWidth()) {
                         Text(
                             state.errorMessage.orEmpty(),
                             modifier = Modifier.padding(20.dp),
@@ -176,7 +182,7 @@ fun TransactionListScreen(
                 }
 
                 state.transactions.isEmpty() -> item {
-                    GlassCard(Modifier.fillMaxWidth()) {
+                    NeumorphicCard(Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxWidth().padding(36.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -198,8 +204,8 @@ fun TransactionListScreen(
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart) {
-                            viewModel.deleteTransaction(transaction.id)
-                            true
+                            pendingDelete = transaction
+                            false
                         } else false
                     }
                 )
@@ -223,5 +229,38 @@ fun TransactionListScreen(
                 }
             }
         }
+    }
+
+    pendingDelete?.let { transaction ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            containerColor = com.tracker.ui.theme.LightSurface,
+            shape = RoundedCornerShape(22.dp),
+            icon = {
+                Icon(Icons.Rounded.Delete, contentDescription = null, tint = ExpenseRed)
+            },
+            title = { Text("Delete transaction?") },
+            text = {
+                Text(
+                    "\"${transaction.description}\" will be permanently removed. This action cannot be undone."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteTransaction(transaction.id)
+                        pendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
+                ) {
+                    Text("Yes, delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("Keep it")
+                }
+            }
+        )
     }
 }

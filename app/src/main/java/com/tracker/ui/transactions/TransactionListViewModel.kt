@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tracker.domain.model.Transaction
 import com.tracker.domain.repository.TransactionRepository
+import com.tracker.domain.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +21,15 @@ import javax.inject.Inject
 data class TransactionListUiState(
     val transactions: List<Transaction> = emptyList(),
     val selectedMonth: YearMonth = YearMonth.now(),
+    val currencyCode: String = "SGD",
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
 
 @HiltViewModel
 class TransactionListViewModel @Inject constructor(
-    private val repository: TransactionRepository
+    private val repository: TransactionRepository,
+    preferencesRepository: PreferencesRepository
 ) : ViewModel() {
 
     private val selectedMonth = MutableStateFlow(YearMonth.now())
@@ -35,6 +38,11 @@ class TransactionListViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            preferencesRepository.preferences.collect { preferences ->
+                _uiState.update { it.copy(currencyCode = preferences.currencyCode) }
+            }
+        }
+        viewModelScope.launch {
             selectedMonth.combine(repository.getAllTransactions()) { month, transactions ->
                 val zone = ZoneId.systemDefault()
                 val start = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -42,6 +50,7 @@ class TransactionListViewModel @Inject constructor(
                 TransactionListUiState(
                     transactions = transactions.filter { it.date in start until end },
                     selectedMonth = month,
+                    currencyCode = _uiState.value.currencyCode,
                     isLoading = false
                 )
             }.catch { error ->
@@ -70,6 +79,9 @@ class TransactionListViewModel @Inject constructor(
     fun formatAmount(cents: Long): String {
         val whole = cents / 100
         val fraction = kotlin.math.abs(cents % 100)
-        return String.format(Locale.getDefault(), "%,d.%02d", whole, fraction)
+        val symbol = runCatching {
+            java.util.Currency.getInstance(_uiState.value.currencyCode).symbol
+        }.getOrDefault(_uiState.value.currencyCode)
+        return "$symbol ${String.format(Locale.getDefault(), "%,d.%02d", whole, fraction)}"
     }
 }

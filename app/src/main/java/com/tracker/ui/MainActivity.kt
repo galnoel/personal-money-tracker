@@ -33,16 +33,30 @@ import com.tracker.ui.navigation.bottomNavItems
 import com.tracker.ui.quickinput.QuickInputActivity
 import com.tracker.ui.theme.*
 import com.tracker.ui.transactions.TransactionListScreen
+import com.tracker.ui.settings.SettingsScreen
+import com.tracker.domain.model.UserPreferences
+import com.tracker.domain.repository.PreferencesRepository
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var preferencesRepository: PreferencesRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
-            MoneyTrackerTheme {
+            val preferences by preferencesRepository.preferences.collectAsStateWithLifecycle(
+                initialValue = UserPreferences()
+            )
+            val accent = remember(preferences.accentHex) {
+                runCatching {
+                    Color(android.graphics.Color.parseColor(preferences.accentHex))
+                }.getOrDefault(Primary)
+            }
+            MoneyTrackerTheme(accent = accent) {
                 MoneyTrackerRoot(
                     onAddTransaction = {
                         startActivity(Intent(this, QuickInputActivity::class.java))
@@ -76,7 +90,7 @@ fun MoneyTrackerRoot(
                     .background(LightBackground),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
-                CircularProgressIndicator(color = Primary)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
         authState.isAuthenticated -> {
@@ -108,6 +122,7 @@ fun MainApp(
     onSignOut: () -> Unit
 ) {
     val navController = rememberNavController()
+    val accent = MaterialTheme.colorScheme.primary
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -115,7 +130,7 @@ fun MainApp(
         containerColor = LightBackground,
         bottomBar = {
             NavigationBar(
-                containerColor = Color.White.copy(alpha = 0.94f),
+                containerColor = LightSurface,
                 tonalElevation = 0.dp,
                 modifier = Modifier
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
@@ -130,7 +145,7 @@ fun MainApp(
                             icon = {
                                 Surface(
                                     shape = RoundedCornerShape(16.dp),
-                                    color = Primary,
+                                    color = accent,
                                     shadowElevation = 8.dp,
                                     modifier = Modifier.size(48.dp)
                                 ) {
@@ -178,11 +193,11 @@ fun MainApp(
                         },
                         label = { Text(screen.title) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Primary,
-                            selectedTextColor = Primary,
+                            selectedIconColor = accent,
+                            selectedTextColor = accent,
                             unselectedIconColor = TextTertiary,
                             unselectedTextColor = TextTertiary,
-                            indicatorColor = Primary.copy(alpha = 0.1f)
+                            indicatorColor = accent.copy(alpha = 0.1f)
                         )
                     )
                 }
@@ -208,6 +223,9 @@ fun MainApp(
                     onAddTransaction = onAddTransaction,
                     onEditTransaction = onEditTransaction
                 )
+            }
+            composable(Screen.Accounts.route) {
+                SettingsScreen()
             }
         }
     }

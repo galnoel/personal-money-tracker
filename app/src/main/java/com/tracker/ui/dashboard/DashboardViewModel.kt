@@ -3,10 +3,16 @@ package com.tracker.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tracker.domain.model.CategoryTotal
+import com.tracker.domain.model.AccountBalance
+import com.tracker.domain.model.ChartMode
+import com.tracker.domain.model.ChartPoint
+import com.tracker.domain.model.SyncStatus
 import com.tracker.domain.model.PeriodType
 import com.tracker.domain.model.Transaction
 import com.tracker.domain.model.TransactionType
 import com.tracker.domain.repository.TransactionRepository
+import com.tracker.domain.repository.AccountRepository
+import com.tracker.domain.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,23 +36,49 @@ data class DashboardUiState(
     val categoryTotals: List<CategoryTotal> = emptyList(),
     val recentTransactions: List<Transaction> = emptyList(),
     val periodLabel: String = "",
+    val accountBalances: List<AccountBalance> = emptyList(),
+    val chartMode: ChartMode = ChartMode.Month,
+    val chartOffset: Int = 0,
+    val chartPeriodLabel: String = "",
+    val chartPoints: List<ChartPoint> = emptyList(),
+    val currencyCode: String = "SGD",
+    val syncStatus: SyncStatus = SyncStatus.Synced,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val repository: TransactionRepository
+    private val repository: TransactionRepository,
+    private val accountsRepository: AccountRepository,
+    preferencesRepository: PreferencesRepository
 ) : ViewModel() {
 
     private val selectedPeriod = MutableStateFlow(PeriodType.MONTH)
+    private val chartMode = MutableStateFlow(ChartMode.Month)
+    private val chartOffset = MutableStateFlow(0)
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            selectedPeriod
-                .combine(repository.getAllTransactions()) { period, all ->
+            repository.syncStatus.collect { status ->
+                _uiState.update { it.copy(syncStatus = status) }
+            }
+        }
+        viewModelScope.launch {
+            preferencesRepository.preferences.collect { preferences ->
+                _uiState.update { it.copy(currencyCode = preferences.currencyCode) }
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                selectedPeriod,
+                chartMode,
+                chartOffset,
+                repository.getAllTransactions(),
+                accountsRepository.getAccountBalances()
+            ) { period, mode, offset, all, accountBalances ->
                     val filtered = filterForPeriod(all, period)
                     val income = filtered.filter { it.type == TransactionType.IN }.sumOf { it.amount }
                     val expense = filtered.filter { it.type == TransactionType.OUT }.sumOf { it.amount }
@@ -56,7 +88,9 @@ class DashboardViewModel @Inject constructor(
                         selectedPeriod = period,
                         totalIncome = income,
                         totalExpense = expense,
-                        allTimeBalance = lifetimeIncome - lifetimeExpense,
+                        allTimeBalance = accountBalances.sumOf { it.balance }
+                            .takeIf { accountBalances.isNotEmpty() }
+                            ?: (lifetimeIncome - lifetimeExpense),
                         categoryTotals = filtered
                             .filter { it.type == TransactionType.OUT }
                             .groupBy { it.category }
@@ -66,6 +100,13 @@ class DashboardViewModel @Inject constructor(
                             .sortedByDescending { it.total },
                         recentTransactions = all.take(5),
                         periodLabel = periodLabel(period),
+                        accountBalances = accountBalances,
+                        chartMode = mode,
+                        chartOffset = offset,
+                        chartPeriodLabel = chartPeriodLabel(mode, offset),
+                        chartPoints = buildChart(all, mode, offset),
+                        currencyCode = _uiState.value.currencyCode,
+                        syncStatus = repository.syncStatus.value,
                         isLoading = false
                     )
                 }
@@ -81,6 +122,16 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun selectChartMode(mode: ChartMode) {
+        chartMode.value = mode
+        chartOffset.value = 0
+    }
+
+    fun previousChartPeriod() { chartOffset.value -= 1 }
+    fun nextChartPeriod() {
+        if (chartOffset.value < 0) chartOffset.value += 1
+    }
+
     fun selectPeriod(period: PeriodType) {
         selectedPeriod.value = period
     }
@@ -88,7 +139,10 @@ class DashboardViewModel @Inject constructor(
     fun retry() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            runCatching { repository.refresh() }
+            runCatching {
+                accountsRepository.refresh()
+                repository.refresh()
+            }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(isLoading = false, errorMessage = error.message)
@@ -101,6 +155,66 @@ class DashboardViewModel @Inject constructor(
         val whole = cents / 100
         val fraction = kotlin.math.abs(cents % 100)
         return String.format(Locale.getDefault(), "%,d.%02d", whole, fraction)
+    }
+
+    fun formatMoney(cents: Long): String {
+        val symbol = runCatching {
+            java.util.Currency.getInstance(_uiState.value.currencyCode).symbol
+        }.getOrDefault(_uiState.value.currencyCode)
+        return "$symbol ${formatAmount(cents)}"
+    }
+
+    private fun buildChart(all: List<Transaction>, mode: ChartMode, offset: Int): List<ChartPoint> {
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now()
+        val start = when (mode) {
+            ChartMode.Day -> today.plusDays(offset.toLong()).atStartOfDay()
+            ChartMode.Month -> today.plusMonths(offset.toLong()).withDayOfMonth(1).atStartOfDay()
+            ChartMode.Year -> today.plusYears(offset.toLong()).withDayOfYear(1).atStartOfDay()
+        }
+        val count = when (mode) {
+            ChartMode.Day -> 24
+            ChartMode.Month -> start.toLocalDate().lengthOfMonth()
+            ChartMode.Year -> 12
+        }
+        val filtered = all.filter {
+            val local = java.time.Instant.ofEpochMilli(it.date).atZone(zone).toLocalDateTime()
+            when (mode) {
+                ChartMode.Day -> local.toLocalDate() == start.toLocalDate()
+                ChartMode.Month -> local.year == start.year && local.month == start.month
+                ChartMode.Year -> local.year == start.year
+            }
+        }
+        return (0 until count).map { index ->
+            val bucket = filtered.filter {
+                val local = java.time.Instant.ofEpochMilli(it.date).atZone(zone).toLocalDateTime()
+                when (mode) {
+                    ChartMode.Day -> local.hour == index
+                    ChartMode.Month -> local.dayOfMonth == index + 1
+                    ChartMode.Year -> local.monthValue == index + 1
+                }
+            }
+            ChartPoint(
+                label = when (mode) {
+                    ChartMode.Day -> String.format("%02d:00", index)
+                    ChartMode.Month -> (index + 1).toString()
+                    ChartMode.Year -> java.time.Month.of(index + 1).getDisplayName(
+                        java.time.format.TextStyle.SHORT, Locale.getDefault()
+                    )
+                },
+                income = bucket.filter { it.type == TransactionType.IN }.sumOf { it.amount },
+                expense = bucket.filter { it.type == TransactionType.OUT }.sumOf { it.amount }
+            )
+        }
+    }
+
+    private fun chartPeriodLabel(mode: ChartMode, offset: Int): String {
+        val today = LocalDate.now()
+        return when (mode) {
+            ChartMode.Day -> today.plusDays(offset.toLong()).format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+            ChartMode.Month -> today.plusMonths(offset.toLong()).format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+            ChartMode.Year -> today.plusYears(offset.toLong()).year.toString()
+        }
     }
 
     private fun filterForPeriod(

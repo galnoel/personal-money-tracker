@@ -27,6 +27,12 @@ import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.SyncProblem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,13 +41,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,15 +58,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.domain.model.PeriodType
 import com.tracker.domain.model.Transaction
 import com.tracker.domain.model.TransactionType
+import com.tracker.domain.model.ChartMode
+import com.tracker.domain.model.SyncStatus
 import com.tracker.ui.components.CategoryIcons
-import com.tracker.ui.components.GlassCard
+import com.tracker.ui.components.NeumorphicCard
 import com.tracker.ui.components.PieChart
 import com.tracker.ui.components.PieSlice
 import com.tracker.ui.components.StatCard
+import com.tracker.ui.components.CashFlowChart
 import com.tracker.ui.theme.ExpenseRed
 import com.tracker.ui.theme.IncomeGreen
 import com.tracker.ui.theme.LightBackground
-import com.tracker.ui.theme.Primary
+import com.tracker.ui.theme.LightSurface
+import com.tracker.ui.theme.TextPrimary
 import com.tracker.ui.theme.TextSecondary
 import com.tracker.ui.theme.TextTertiary
 import java.text.SimpleDateFormat
@@ -76,22 +86,19 @@ fun DashboardScreen(
     onNavigateToTransactions: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val background = Brush.verticalGradient(
-        listOf(Color(0xFFE8EDFF), LightBackground, Color(0xFFF9F7FF))
-    )
-
+    val accent = MaterialTheme.colorScheme.primary
     when {
         state.isLoading -> Box(
-            Modifier.fillMaxSize().background(background),
+            Modifier.fillMaxSize().background(LightBackground),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = Primary)
+            CircularProgressIndicator(color = accent)
         }
 
         state.errorMessage != null -> ErrorState(state.errorMessage.orEmpty(), viewModel::retry)
 
         else -> LazyColumn(
-            modifier = Modifier.fillMaxSize().background(background),
+            modifier = Modifier.fillMaxSize().background(LightBackground),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 112.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -123,21 +130,40 @@ fun DashboardScreen(
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Surface(
+                            onClick = viewModel::retry,
                             shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.75f),
+                            color = LightSurface,
                             shadowElevation = 4.dp
                         ) {
-                            Icon(
-                                Icons.Rounded.CloudDone,
-                                contentDescription = "Synced with Supabase",
-                                tint = Primary,
-                                modifier = Modifier.padding(12.dp).size(22.dp)
-                            )
+                            Row(
+                                Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    when (state.syncStatus) {
+                                        SyncStatus.Synced -> Icons.Rounded.CloudDone
+                                        SyncStatus.Syncing -> Icons.Rounded.Sync
+                                        SyncStatus.Offline -> Icons.Rounded.CloudOff
+                                        SyncStatus.Failed -> Icons.Rounded.SyncProblem
+                                    },
+                                    contentDescription = state.syncStatus.name,
+                                    tint = if (state.syncStatus == SyncStatus.Synced) accent else TextSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                if (state.syncStatus != SyncStatus.Synced) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        state.syncStatus.name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
                         }
                         Surface(
                             onClick = onSignOut,
                             shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.75f),
+                            color = LightSurface,
                             shadowElevation = 4.dp
                         ) {
                             Icon(
@@ -152,15 +178,11 @@ fun DashboardScreen(
             }
 
             item {
-                GlassCard(Modifier.fillMaxWidth()) {
+                NeumorphicCard(Modifier.fillMaxWidth()) {
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF4F46E5), Color(0xFF7C3AED))
-                                )
-                            )
+                            .background(LightSurface)
                             .padding(24.dp)
                     ) {
                         Column {
@@ -168,13 +190,13 @@ fun DashboardScreen(
                                 Icon(
                                     Icons.Rounded.AccountBalanceWallet,
                                     contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.82f),
+                                    tint = accent,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "TOTAL BALANCE · ALL TIME",
-                                    color = Color.White.copy(alpha = 0.82f),
+                                    color = TextSecondary,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -182,8 +204,8 @@ fun DashboardScreen(
                             Spacer(Modifier.height(14.dp))
                             val balance = state.allTimeBalance
                             Text(
-                                "${if (balance < 0) "-" else ""}${viewModel.formatAmount(abs(balance))}",
-                                color = Color.White,
+                                "${if (balance < 0) "-" else ""}${viewModel.formatMoney(abs(balance))}",
+                                color = TextPrimary,
                                 style = MaterialTheme.typography.displayLarge.copy(
                                     fontSize = 38.sp,
                                     fontWeight = FontWeight.Bold
@@ -192,9 +214,41 @@ fun DashboardScreen(
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 "Income minus expenses since your first record",
-                                color = Color.White.copy(alpha = 0.72f),
+                                color = TextSecondary,
                                 style = MaterialTheme.typography.bodySmall
                             )
+                        }
+                    }
+                }
+            }
+
+            if (state.accountBalances.isNotEmpty()) {
+                item {
+                    Column {
+                        Text(
+                            "Accounts",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            state.accountBalances.forEach { item ->
+                                NeumorphicCard(Modifier.width(170.dp)) {
+                                    Column(Modifier.padding(16.dp)) {
+                                        Icon(Icons.Rounded.Savings, null, tint = accent)
+                                        Spacer(Modifier.height(10.dp))
+                                        Text(item.account.name, maxLines = 1, color = TextSecondary)
+                                        Text(
+                                            viewModel.formatMoney(item.balance),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -219,7 +273,7 @@ fun DashboardScreen(
                             Surface(
                                 onClick = { viewModel.selectPeriod(period) },
                                 shape = RoundedCornerShape(50),
-                                color = if (selected) Primary else Color.White.copy(alpha = 0.72f),
+                                color = if (selected) accent else LightSurface,
                                 shadowElevation = if (selected) 5.dp else 0.dp
                             ) {
                                 Text(
@@ -230,6 +284,61 @@ fun DashboardScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            item {
+                NeumorphicCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(18.dp)) {
+                        Text(
+                            "Cash flow trend",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ChartMode.entries.forEach { mode ->
+                                FilterChip(
+                                    selected = mode == state.chartMode,
+                                    onClick = { viewModel.selectChartMode(mode) },
+                                    label = { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) }
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(onClick = viewModel::previousChartPeriod, shape = CircleShape) {
+                                Icon(Icons.Rounded.ChevronLeft, "Previous period", Modifier.padding(8.dp))
+                            }
+                            Text(state.chartPeriodLabel, fontWeight = FontWeight.SemiBold)
+                            Surface(
+                                onClick = viewModel::nextChartPeriod,
+                                enabled = state.chartOffset < 0,
+                                shape = CircleShape
+                            ) {
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    "Next period",
+                                    Modifier.padding(8.dp),
+                                    tint = if (state.chartOffset < 0) TextPrimary else TextTertiary
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        CashFlowChart(
+                            points = state.chartPoints,
+                            formatMoney = viewModel::formatMoney,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            "Tap the chart to inspect income, expense, and net movement.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextTertiary
+                        )
                     }
                 }
             }
@@ -266,7 +375,7 @@ fun DashboardScreen(
 
             if (state.categoryTotals.isNotEmpty()) {
                 item {
-                    GlassCard(Modifier.fillMaxWidth()) {
+                    NeumorphicCard(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(20.dp)) {
                             Text(
                                 "Spending mix",
@@ -311,7 +420,7 @@ fun DashboardScreen(
 
             if (state.recentTransactions.isEmpty()) {
                 item {
-                    GlassCard(Modifier.fillMaxWidth()) {
+                    NeumorphicCard(Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxWidth().padding(32.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -350,7 +459,7 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
         Modifier.fillMaxSize().background(LightBackground).padding(28.dp),
         contentAlignment = Alignment.Center
     ) {
-        GlassCard(Modifier.fillMaxWidth()) {
+        NeumorphicCard(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -361,7 +470,7 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
                 Spacer(Modifier.height(18.dp))
                 Button(
                     onClick = onRetry,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) { Text("Try again") }
             }
         }
@@ -378,7 +487,7 @@ fun TransactionItem(
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
     val isIncome = transaction.type == TransactionType.IN
-    GlassCard(
+    NeumorphicCard(
         modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)

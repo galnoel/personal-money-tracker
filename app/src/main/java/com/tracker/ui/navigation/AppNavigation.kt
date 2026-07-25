@@ -11,6 +11,7 @@ sealed class Screen(
 ) {
     object Dashboard : Screen("dashboard", "Dashboard", Icons.Rounded.Dashboard)
     object Transactions : Screen("transactions", "History", Icons.Rounded.ReceiptLong)
+    object Accounts : Screen("accounts", "Accounts", Icons.Rounded.AccountBalanceWallet)
 }
 
-val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions)
+val bottomNavItems = listOf(Screen.Dashboard, Screen.Transactions, Screen.Accounts)

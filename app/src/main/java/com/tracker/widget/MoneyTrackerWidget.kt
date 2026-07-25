@@ -3,12 +3,10 @@ package com.tracker.widget
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -18,226 +16,51 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
-import androidx.glance.layout.Column
-import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.tracker.ui.MainActivity
 import com.tracker.ui.quickinput.QuickInputActivity
 
+/** A single-purpose launcher button. It never navigates to MainActivity. */
 class MoneyTrackerWidget : GlanceAppWidget() {
-    override val sizeMode: SizeMode = SizeMode.Responsive(
-        setOf(
-            DpSize(56.dp, 56.dp),
-            DpSize(120.dp, 120.dp),
-            DpSize(250.dp, 120.dp)
-        )
-    )
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent {
-            WidgetContent(LocalSize.current)
-        }
+        val hex = context.getSharedPreferences("widget_preferences", Context.MODE_PRIVATE)
+            .getString("accent_hex", "#4F46E5") ?: "#4F46E5"
+        val accent = runCatching {
+            Color(android.graphics.Color.parseColor(hex))
+        }.getOrDefault(Color(0xFF4F46E5))
+        provideContent { QuickAddButton(accent) }
     }
 
     @Composable
-    private fun WidgetContent(size: DpSize) {
-        val bgColor = androidx.glance.color.ColorProvider(day = Color(0xEEFFFFFF), night = Color(0xEEFFFFFF))
-        val orbGlowColor = androidx.glance.color.ColorProvider(day = Color(0x334F46E5), night = Color(0x334F46E5))
-        val orbRingColor = androidx.glance.color.ColorProvider(day = Color(0x554F46E5), night = Color(0x554F46E5))
-        val primaryColor = androidx.glance.color.ColorProvider(day = Color(0xFF4F46E5), night = Color(0xFF4F46E5))
-        val textColor = androidx.glance.color.ColorProvider(day = Color(0xFF172033), night = Color(0xFF172033))
-        val subtextColor = androidx.glance.color.ColorProvider(day = Color(0xFF667085), night = Color(0xFF667085))
-        val darkBg = androidx.glance.color.ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFFFFFFFF))
-
-        when {
-            size.width < 100.dp || size.height < 90.dp -> TinyWidget(
-                bgColor = bgColor,
-                orbGlowColor = orbGlowColor,
-                orbRingColor = orbRingColor,
-                primaryColor = primaryColor,
-                darkBg = darkBg
-            )
-            size.width < 180.dp || size.height < 120.dp -> CompactWidget(
-                bgColor = bgColor,
-                primaryColor = primaryColor,
-                textColor = textColor,
-                darkBg = darkBg
-            )
-            else -> FullWidget(
-                bgColor = bgColor,
-                primaryColor = primaryColor,
-                textColor = textColor,
-                subtextColor = subtextColor,
-                darkBg = darkBg
-            )
-        }
-    }
-
-    @Composable
-    private fun TinyWidget(
-        bgColor: ColorProvider,
-        orbGlowColor: ColorProvider,
-        orbRingColor: ColorProvider,
-        primaryColor: ColorProvider,
-        darkBg: ColorProvider
-    ) {
+    private fun QuickAddButton(accentColor: Color) {
+        val surface = ColorProvider(Color(0xFFE9EEF5))
+        val accent = ColorProvider(accentColor)
+        val white = ColorProvider(Color.White)
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .cornerRadius(20.dp)
-                .background(bgColor)
-                .padding(6.dp)
+                .background(surface)
+                .padding(8.dp)
                 .clickable(actionStartActivity<QuickInputActivity>()),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .cornerRadius(18.dp)
-                    .background(orbGlowColor)
-                    .padding(5.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .cornerRadius(16.dp)
-                        .background(orbRingColor)
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = GlanceModifier
-                            .fillMaxSize()
-                            .cornerRadius(14.dp)
-                            .background(primaryColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "+",
-                            style = TextStyle(
-                                color = darkBg,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun CompactWidget(
-        bgColor: ColorProvider,
-        primaryColor: ColorProvider,
-        textColor: ColorProvider,
-        darkBg: ColorProvider
-    ) {
-        Column(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .cornerRadius(20.dp)
-                .background(bgColor)
-                .padding(10.dp)
-                .clickable(actionStartActivity<MainActivity>()),
-            horizontalAlignment = Alignment.Horizontal.CenterHorizontally
-        ) {
-            Text(
-                text = "Money",
-                style = TextStyle(
-                    color = textColor,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
-            )
-
-            Spacer(modifier = GlanceModifier.height(12.dp))
-
-            Box(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .cornerRadius(14.dp)
-                    .background(primaryColor)
-                    .padding(vertical = 9.dp)
-                    .clickable(actionStartActivity<QuickInputActivity>()),
+                    .cornerRadius(16.dp)
+                    .background(accent),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "+ Add",
-                    style = TextStyle(
-                        color = darkBg,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-        }
-    }
-
-    @Composable
-    private fun FullWidget(
-        bgColor: ColorProvider,
-        primaryColor: ColorProvider,
-        textColor: ColorProvider,
-        subtextColor: ColorProvider,
-        darkBg: ColorProvider
-    ) {
-        Column(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .cornerRadius(24.dp)
-                .background(bgColor)
-                .padding(14.dp)
-                .clickable(actionStartActivity<MainActivity>())
-        ) {
-            Text(
-                text = "Money Tracker",
-                style = TextStyle(
-                    color = textColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
-            )
-
-            Spacer(modifier = GlanceModifier.height(6.dp))
-
-            Text(
-                text = "Tap to add transaction",
-                style = TextStyle(
-                    color = subtextColor,
-                    fontSize = 12.sp
-                ),
-                maxLines = 1
-            )
-
-            Spacer(modifier = GlanceModifier.height(12.dp))
-
-            Box(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .cornerRadius(14.dp)
-                    .background(primaryColor)
-                    .padding(vertical = 11.dp)
-                    .clickable(actionStartActivity<QuickInputActivity>()),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+  Quick Add",
-                    style = TextStyle(
-                        color = darkBg,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    "+",
+                    style = TextStyle(color = white, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 )
             }
         }

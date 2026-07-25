@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -47,7 +46,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tracker.ui.components.GlassCard
+import com.tracker.ui.components.NeumorphicCard
 import com.tracker.ui.theme.ExpenseRed
 import com.tracker.ui.theme.IncomeGreen
 import com.tracker.ui.theme.LightBackground
@@ -70,14 +69,10 @@ fun AuthScreen(
     var showPassword by remember { mutableStateOf(false) }
     var showConfirmPassword by remember { mutableStateOf(false) }
     val isSignUp = state.mode == AuthMode.SIGN_UP
-    val background = Brush.verticalGradient(
-        listOf(Color(0xFFDDE5FF), LightBackground, Color(0xFFF5EFFF))
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(background)
+            .background(LightBackground)
             .padding(horizontal = 22.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -118,7 +113,7 @@ fun AuthScreen(
             )
             Spacer(Modifier.height(24.dp))
 
-            GlassCard(Modifier.fillMaxWidth()) {
+            NeumorphicCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(20.dp)) {
                     if (state.isAnonymous) {
                         Surface(
@@ -354,8 +349,8 @@ private fun AuthTextField(
             focusedLabelColor = Primary,
             cursorColor = Primary,
             unfocusedBorderColor = Color(0xFFD7DCE8),
-            focusedContainerColor = Color.White.copy(alpha = 0.7f),
-            unfocusedContainerColor = Color.White.copy(alpha = 0.55f)
+            focusedContainerColor = com.tracker.ui.theme.LightSurface,
+            unfocusedContainerColor = com.tracker.ui.theme.LightSurface
         )
     )
 }

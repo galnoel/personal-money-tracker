@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -42,12 +41,8 @@ fun StatCard(
                     shape = RoundedCornerShape(20.dp)
                 )
                 .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.94f),
-                            color.copy(alpha = 0.08f)
-                        )
-                    )
+                    color = com.tracker.ui.theme.LightSurface,
+                    shape = RoundedCornerShape(20.dp)
                 )
                 .padding(16.dp)
         ) {

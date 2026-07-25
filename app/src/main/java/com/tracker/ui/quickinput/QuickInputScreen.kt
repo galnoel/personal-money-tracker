@@ -32,8 +32,12 @@ fun QuickInputScreen(
     onDismiss: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val accent = MaterialTheme.colorScheme.primary
     var showCategoryMenu by remember { mutableStateOf(false) }
     var showPaymentMenu by remember { mutableStateOf(false) }
+    var showDestinationMenu by remember { mutableStateOf(false) }
+    var showAddPaymentDialog by remember { mutableStateOf(false) }
+    var newPaymentMethod by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isSaved) {
@@ -47,7 +51,7 @@ fun QuickInputScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.58f))
+            .background(Color.Black.copy(alpha = 0.28f))
             .clickable(
                 indication = null,
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -66,11 +70,11 @@ fun QuickInputScreen(
                 ) { /* prevent click-through */ }
                 .border(
                     width = 1.dp,
-                    color = Color.White.copy(alpha = 0.15f),
+                    color = Color.White,
                     shape = RoundedCornerShape(28.dp)
                 ),
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface.copy(alpha = 0.9f))
+            colors = CardDefaults.cardColors(containerColor = LightSurface)
         ) {
             Column(
                 modifier = Modifier
@@ -103,15 +107,19 @@ fun QuickInputScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TransactionType.entries.forEach { type ->
-                        val selected = state.type == type
-                        val color = if (type == TransactionType.IN) IncomeGreen else ExpenseRed
+                    QuickInputMode.entries.forEach { mode ->
+                        val selected = state.mode == mode
+                        val color = when (mode) {
+                            QuickInputMode.INCOME -> IncomeGreen
+                            QuickInputMode.EXPENSE -> ExpenseRed
+                            QuickInputMode.TRANSFER -> accent
+                        }
                         FilterChip(
                             selected = selected,
-                            onClick = { viewModel.setType(type) },
+                            onClick = { viewModel.setMode(mode) },
                             label = {
                                 Text(
-                                    type.label,
+                                    mode.label,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
@@ -125,8 +133,11 @@ fun QuickInputScreen(
                             leadingIcon = if (selected) {
                                 {
                                     Icon(
-                                        if (type == TransactionType.IN) Icons.Rounded.TrendingUp
-                                        else Icons.Rounded.TrendingDown,
+                                        when (mode) {
+                                            QuickInputMode.INCOME -> Icons.Rounded.TrendingUp
+                                            QuickInputMode.EXPENSE -> Icons.Rounded.TrendingDown
+                                            QuickInputMode.TRANSFER -> Icons.Rounded.SwapHoriz
+                                        },
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
                                         tint = color
@@ -145,7 +156,7 @@ fun QuickInputScreen(
                     value = state.amountText,
                     onValueChange = { viewModel.setAmount(it) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Amount") },
+                    label = { Text("Amount (${state.currencyCode})") },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -153,10 +164,10 @@ fun QuickInputScreen(
                     supportingText = state.errorMessage?.let { { Text(it, color = ExpenseRed) } },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Primary,
+                        focusedBorderColor = accent,
                         unfocusedBorderColor = DarkBorder,
-                        cursorColor = Primary,
-                        focusedLabelColor = Primary,
+                        cursorColor = accent,
+                        focusedLabelColor = accent,
                         unfocusedLabelColor = TextSecondary,
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary
@@ -165,7 +176,7 @@ fun QuickInputScreen(
                         Icon(
                             Icons.Rounded.AttachMoney,
                             contentDescription = null,
-                            tint = Primary
+                            tint = accent
                         )
                     },
                     textStyle = MaterialTheme.typography.titleLarge.copy(
@@ -186,10 +197,10 @@ fun QuickInputScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Primary,
+                        focusedBorderColor = accent,
                         unfocusedBorderColor = DarkBorder,
-                        cursorColor = Primary,
-                        focusedLabelColor = Primary,
+                        cursorColor = accent,
+                        focusedLabelColor = accent,
                         unfocusedLabelColor = TextSecondary,
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary
@@ -291,7 +302,7 @@ fun QuickInputScreen(
                                 Icon(
                                     CategoryIcons.getPaymentIcon(state.paymentMethod),
                                     contentDescription = null,
-                                    tint = Primary,
+                                    tint = accent,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -315,7 +326,7 @@ fun QuickInputScreen(
                             onDismissRequest = { showPaymentMenu = false },
                             containerColor = DarkCard
                         ) {
-                            CategoryIcons.paymentMethods.forEach { method ->
+                            state.paymentMethods.forEach { method ->
                                 DropdownMenuItem(
                                     text = { Text(method, color = TextPrimary) },
                                     onClick = {
@@ -326,17 +337,81 @@ fun QuickInputScreen(
                                         Icon(
                                             CategoryIcons.getPaymentIcon(method),
                                             contentDescription = null,
-                                            tint = Primary,
+                                            tint = accent,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 )
                             }
+                            HorizontalDivider(color = DarkBorder)
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Add payment method",
+                                        color = accent,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                },
+                                onClick = {
+                                    showPaymentMenu = false
+                                    showAddPaymentDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = accent
+                                    )
+                                }
+                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                if (state.mode == QuickInputMode.TRANSFER) {
+                    Text("To account", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedCard(
+                            onClick = { showDestinationMenu = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
+                            border = BorderStroke(1.dp, DarkBorder)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.Savings, null, tint = accent)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    state.accounts.firstOrNull { it.id == state.destinationAccountId }?.name
+                                        ?: "Select destination",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(Icons.Rounded.KeyboardArrowDown, null)
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = showDestinationMenu,
+                            onDismissRequest = { showDestinationMenu = false }
+                        ) {
+                            state.accounts.filter { it.id != state.accountId }.forEach { account ->
+                                DropdownMenuItem(
+                                    text = { Text(account.name) },
+                                    onClick = {
+                                        viewModel.setDestinationAccount(account.id)
+                                        showDestinationMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 // Date picker
                 val dateFormat = remember { SimpleDateFormat("EEE, MMM dd yyyy", Locale.getDefault()) }
@@ -355,7 +430,7 @@ fun QuickInputScreen(
                         Icon(
                             Icons.Rounded.CalendarMonth,
                             contentDescription = null,
-                            tint = Primary,
+                            tint = accent,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -398,7 +473,7 @@ fun QuickInputScreen(
                     enabled = !state.isSaving,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Primary,
+                        containerColor = accent,
                         contentColor = DarkBackground
                     )
                 ) {
@@ -441,5 +516,53 @@ fun QuickInputScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    if (showAddPaymentDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddPaymentDialog = false
+                newPaymentMethod = ""
+            },
+            containerColor = LightSurface,
+            shape = RoundedCornerShape(22.dp),
+            icon = {
+                Icon(Icons.Rounded.AddCard, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            },
+            title = { Text("New payment method") },
+            text = {
+                OutlinedTextField(
+                    value = newPaymentMethod,
+                    onValueChange = { newPaymentMethod = it.take(40) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Method name") },
+                    placeholder = { Text("e.g. PayPal") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.addPaymentMethod(newPaymentMethod)
+                        newPaymentMethod = ""
+                        showAddPaymentDialog = false
+                    },
+                    enabled = newPaymentMethod.isNotBlank()
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        newPaymentMethod = ""
+                        showAddPaymentDialog = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

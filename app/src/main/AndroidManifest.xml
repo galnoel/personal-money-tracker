@@ -24,11 +24,10 @@
 
         <activity
             android:name=".ui.quickinput.QuickInputActivity"
-            android:exported="true"
+            android:exported="false"
             android:theme="@style/Theme.MoneyTracker.Translucent"
             android:excludeFromRecents="true"
-            android:taskAffinity=""
-            android:launchMode="singleInstance" />
+            android:launchMode="singleTop" />
 
         <receiver
             android:name=".widget.MoneyTrackerWidgetReceiver"

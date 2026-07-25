@@ -2,6 +2,9 @@ package com.tracker.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tracker.domain.repository.TransactionRepository
+import com.tracker.domain.repository.AccountRepository
+import com.tracker.domain.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
@@ -35,7 +38,10 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val supabase: SupabaseClient
+    private val supabase: SupabaseClient,
+    private val transactions: TransactionRepository,
+    private val accounts: AccountRepository,
+    private val preferences: PreferencesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -61,6 +67,7 @@ class AuthViewModel @Inject constructor(
                                 accountEmail = user?.email
                             )
                         }
+                        if (!anonymous) runCatching { preferences.sync() }
                     }
                     is SessionStatus.NotAuthenticated -> {
                         _uiState.update {
@@ -194,7 +201,11 @@ class AuthViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch {
-            runCatching { supabase.auth.signOut() }
+            runCatching {
+                transactions.clearLocalCache()
+                accounts.clearLocalCache()
+                supabase.auth.signOut()
+            }
                 .onFailure { error ->
                     _uiState.update { it.copy(errorMessage = friendlyMessage(error)) }
                 }

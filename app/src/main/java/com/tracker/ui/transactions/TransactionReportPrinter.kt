@@ -17,7 +17,8 @@ object TransactionReportPrinter {
     fun print(
         context: Context,
         month: YearMonth,
-        transactions: List<Transaction>
+        transactions: List<Transaction>,
+        currencyCode: String
     ) {
         val monthLabel = month.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
         val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -30,7 +31,7 @@ object TransactionReportPrinter {
               <td>${dateFormat.format(Date(transaction.date)).html()}</td>
               <td>${transaction.description.html()}<small>${transaction.category.html()} · ${transaction.paymentMethod.html()}</small></td>
               <td class="${if (transaction.type == TransactionType.IN) "income" else "expense"}">
-                ${if (transaction.type == TransactionType.IN) "+" else "-"}${money(transaction.amount)}
+                ${if (transaction.type == TransactionType.IN) "+" else "-"}${money(transaction.amount, currencyCode)}
               </td>
             </tr>
             """.trimIndent()
@@ -57,9 +58,9 @@ object TransactionReportPrinter {
             </style></head><body>
               <div class="header"><div><h1>Money mutation report</h1><h2>$monthLabel</h2></div><b>${transactions.size} records</b></div>
               <div class="summary">
-                <div class="box">Income<b class="income">+${money(income)}</b></div>
-                <div class="box">Expense<b class="expense">-${money(expense)}</b></div>
-                <div class="box">Net movement<b>${signedMoney(income - expense)}</b></div>
+                <div class="box">Income<b class="income">+${money(income, currencyCode)}</b></div>
+                <div class="box">Expense<b class="expense">-${money(expense, currencyCode)}</b></div>
+                <div class="box">Net movement<b>${signedMoney(income - expense, currencyCode)}</b></div>
               </div>
               ${if (transactions.isEmpty()) "<div class=\"empty\">No mutations for this month.</div>" else """
               <table><thead><tr><th>Date</th><th>Mutation</th><th>Amount</th></tr></thead><tbody>$rows</tbody></table>
@@ -85,11 +86,14 @@ object TransactionReportPrinter {
         webView.loadDataWithBaseURL(null, html, "text/HTML", "UTF-8", null)
     }
 
-    private fun money(cents: Long): String =
-        String.format(Locale.getDefault(), "%,d.%02d", cents / 100, kotlin.math.abs(cents % 100))
+    private fun money(cents: Long, currencyCode: String): String {
+        val symbol = runCatching { java.util.Currency.getInstance(currencyCode).symbol }
+            .getOrDefault(currencyCode)
+        return "$symbol ${String.format(Locale.getDefault(), "%,d.%02d", cents / 100, kotlin.math.abs(cents % 100))}"
+    }
 
-    private fun signedMoney(cents: Long): String =
-        "${if (cents >= 0) "+" else "-"}${money(kotlin.math.abs(cents))}"
+    private fun signedMoney(cents: Long, currencyCode: String): String =
+        "${if (cents >= 0) "+" else "-"}${money(kotlin.math.abs(cents), currencyCode)}"
 
     private fun String.html(): String = replace("&", "&amp;")
         .replace("<", "&lt;")

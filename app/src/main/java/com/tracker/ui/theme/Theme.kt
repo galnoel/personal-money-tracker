@@ -6,15 +6,16 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColorScheme = lightColorScheme(
-    primary = Primary,
+private fun lightScheme(accent: Color) = lightColorScheme(
+    primary = accent,
     onPrimary = Color.White,
-    primaryContainer = PrimaryLight,
-    onPrimaryContainer = PrimaryDark,
+    primaryContainer = accent.copy(alpha = 0.14f).compositeOver(Color.White),
+    onPrimaryContainer = accent,
     secondary = IncomeGreen,
     onSecondary = Color.White,
     secondaryContainer = IncomeSurface,
@@ -34,7 +35,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun MoneyTrackerTheme(content: @Composable () -> Unit) {
+fun MoneyTrackerTheme(accent: Color = Primary, content: @Composable () -> Unit) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -48,7 +49,7 @@ fun MoneyTrackerTheme(content: @Composable () -> Unit) {
         }
     }
     MaterialTheme(
-        colorScheme = LightColorScheme,
+        colorScheme = lightScheme(accent),
         typography = Typography,
         content = content
     )
