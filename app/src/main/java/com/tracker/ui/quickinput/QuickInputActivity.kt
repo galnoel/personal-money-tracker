@@ -2,27 +2,51 @@ package com.tracker.ui.quickinput
 
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import com.tracker.ui.MainActivity
 import com.tracker.ui.theme.MoneyTrackerTheme
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class QuickInputActivity : ComponentActivity() {
+    @Inject
+    lateinit var supabase: SupabaseClient
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         configureBlurredBackdrop()
 
-        setContent {
-            MoneyTrackerTheme {
-                QuickInputScreen(
-                    onDismiss = { finish() }
+        lifecycleScope.launch {
+            supabase.auth.awaitInitialization()
+            val user = supabase.auth.currentUserOrNull()
+            if (user?.email.isNullOrBlank()) {
+                startActivity(
+                    Intent(this@QuickInputActivity, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
                 )
+                finish()
+                return@launch
+            }
+
+            setContent {
+                MoneyTrackerTheme {
+                    QuickInputScreen(
+                        onDismiss = { finish() }
+                    )
+                }
             }
         }
     }

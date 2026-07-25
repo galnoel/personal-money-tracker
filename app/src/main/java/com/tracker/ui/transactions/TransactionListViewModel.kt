@@ -5,13 +5,23 @@ import androidx.lifecycle.viewModelScope
 import com.tracker.domain.model.Transaction
 import com.tracker.domain.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.YearMonth
+import java.time.ZoneId
+import java.util.Locale
 import javax.inject.Inject
 
 data class TransactionListUiState(
     val transactions: List<Transaction> = emptyList(),
-    val isLoading: Boolean = true
+    val selectedMonth: YearMonth = YearMonth.now(),
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
 )
 
 @HiltViewModel
@@ -19,26 +29,47 @@ class TransactionListViewModel @Inject constructor(
     private val repository: TransactionRepository
 ) : ViewModel() {
 
+    private val selectedMonth = MutableStateFlow(YearMonth.now())
     private val _uiState = MutableStateFlow(TransactionListUiState())
     val uiState: StateFlow<TransactionListUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            repository.getAllTransactions().collect { transactions ->
-                _uiState.update { it.copy(transactions = transactions, isLoading = false) }
-            }
+            selectedMonth.combine(repository.getAllTransactions()) { month, transactions ->
+                val zone = ZoneId.systemDefault()
+                val start = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                val end = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                TransactionListUiState(
+                    transactions = transactions.filter { it.date in start until end },
+                    selectedMonth = month,
+                    isLoading = false
+                )
+            }.catch { error ->
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = error.message ?: "Unable to load transactions")
+                }
+            }.collect { _uiState.value = it }
         }
+    }
+
+    fun previousMonth() {
+        selectedMonth.update { it.minusMonths(1) }
+    }
+
+    fun nextMonth() {
+        selectedMonth.update { it.plusMonths(1) }
     }
 
     fun deleteTransaction(id: Long) {
         viewModelScope.launch {
-            repository.deleteTransaction(id)
+            runCatching { repository.deleteTransaction(id) }
+                .onFailure { error -> _uiState.update { it.copy(errorMessage = error.message) } }
         }
     }
 
     fun formatAmount(cents: Long): String {
         val whole = cents / 100
-        val frac = cents % 100
-        return String.format("%,d.%02d", whole, frac)
+        val fraction = kotlin.math.abs(cents % 100)
+        return String.format(Locale.getDefault(), "%,d.%02d", whole, fraction)
     }
 }

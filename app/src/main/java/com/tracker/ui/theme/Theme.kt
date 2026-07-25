@@ -1,8 +1,8 @@
 package com.tracker.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -10,47 +10,45 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
+private val LightColorScheme = lightColorScheme(
     primary = Primary,
-    onPrimary = Color.Black,
-    primaryContainer = PrimaryDark,
-    onPrimaryContainer = PrimaryLight,
+    onPrimary = Color.White,
+    primaryContainer = PrimaryLight,
+    onPrimaryContainer = PrimaryDark,
     secondary = IncomeGreen,
-    onSecondary = Color.Black,
+    onSecondary = Color.White,
     secondaryContainer = IncomeSurface,
-    onSecondaryContainer = IncomeLight,
+    onSecondaryContainer = IncomeDark,
     tertiary = ExpenseRed,
     onTertiary = Color.White,
     tertiaryContainer = ExpenseSurface,
-    onTertiaryContainer = ExpenseLight,
-    background = DarkBackground,
+    onTertiaryContainer = ExpenseDark,
+    background = LightBackground,
     onBackground = TextPrimary,
-    surface = DarkSurface,
+    surface = LightSurface,
     onSurface = TextPrimary,
-    surfaceVariant = DarkSurfaceVariant,
+    surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = TextSecondary,
     outline = DarkBorder,
-    outlineVariant = DarkBorder
+    outlineVariant = LightBorder
 )
 
 @Composable
-fun MoneyTrackerTheme(
-    content: @Composable () -> Unit
-) {
-    val colorScheme = DarkColorScheme
+fun MoneyTrackerTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
-
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = DarkBackground.toArgb()
-            window.navigationBarColor = DarkBackground.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = LightSurface.toArgb()
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = true
+                isAppearanceLightNavigationBars = true
+            }
         }
     }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = LightColorScheme,
         typography = Typography,
         content = content
     )

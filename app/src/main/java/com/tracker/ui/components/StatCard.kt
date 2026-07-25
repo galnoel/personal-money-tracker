@@ -3,6 +3,7 @@ package com.tracker.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -35,11 +36,16 @@ fun StatCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(20.dp)
+                )
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            color.copy(alpha = 0.15f),
-                            color.copy(alpha = 0.05f)
+                            Color.White.copy(alpha = 0.94f),
+                            color.copy(alpha = 0.08f)
                         )
                     )
                 )

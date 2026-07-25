@@ -48,13 +48,13 @@ class MoneyTrackerWidget : GlanceAppWidget() {
 
     @Composable
     private fun WidgetContent(size: DpSize) {
-        val bgColor = androidx.glance.color.ColorProvider(day = Color(0xCC050505), night = Color(0xCC050505))
-        val orbGlowColor = androidx.glance.color.ColorProvider(day = Color(0x5539FF14), night = Color(0x5539FF14))
-        val orbRingColor = androidx.glance.color.ColorProvider(day = Color(0x8839FF14), night = Color(0x8839FF14))
-        val primaryColor = androidx.glance.color.ColorProvider(day = Color(0xFF39FF14), night = Color(0xFF39FF14))
-        val textColor = androidx.glance.color.ColorProvider(day = Color(0xFFECEFF4), night = Color(0xFFECEFF4))
-        val subtextColor = androidx.glance.color.ColorProvider(day = Color(0xFF8B95A5), night = Color(0xFF8B95A5))
-        val darkBg = androidx.glance.color.ColorProvider(day = Color(0xFF000000), night = Color(0xFF000000))
+        val bgColor = androidx.glance.color.ColorProvider(day = Color(0xEEFFFFFF), night = Color(0xEEFFFFFF))
+        val orbGlowColor = androidx.glance.color.ColorProvider(day = Color(0x334F46E5), night = Color(0x334F46E5))
+        val orbRingColor = androidx.glance.color.ColorProvider(day = Color(0x554F46E5), night = Color(0x554F46E5))
+        val primaryColor = androidx.glance.color.ColorProvider(day = Color(0xFF4F46E5), night = Color(0xFF4F46E5))
+        val textColor = androidx.glance.color.ColorProvider(day = Color(0xFF172033), night = Color(0xFF172033))
+        val subtextColor = androidx.glance.color.ColorProvider(day = Color(0xFF667085), night = Color(0xFF667085))
+        val darkBg = androidx.glance.color.ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFFFFFFFF))
 
         when {
             size.width < 100.dp || size.height < 90.dp -> TinyWidget(

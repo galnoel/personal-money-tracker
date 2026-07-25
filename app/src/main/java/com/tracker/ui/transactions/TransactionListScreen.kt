@@ -1,28 +1,61 @@
 package com.tracker.ui.transactions
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Print
+import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.tracker.domain.model.Transaction
+import com.tracker.domain.model.TransactionType
+import com.tracker.ui.components.GlassCard
 import com.tracker.ui.dashboard.TransactionItem
-import com.tracker.ui.theme.*
-import java.text.SimpleDateFormat
-import java.util.*
+import com.tracker.ui.theme.ExpenseRed
+import com.tracker.ui.theme.IncomeGreen
+import com.tracker.ui.theme.LightBackground
+import com.tracker.ui.theme.Primary
+import com.tracker.ui.theme.TextSecondary
+import com.tracker.ui.theme.TextTertiary
+import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionListScreen(
     viewModel: TransactionListViewModel = hiltViewModel(),
@@ -30,146 +63,163 @@ fun TransactionListScreen(
     onEditTransaction: (Long) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val monthLabel = state.selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+    val income = state.transactions.filter { it.type == TransactionType.IN }.sumOf { it.amount }
+    val expense = state.transactions.filter { it.type == TransactionType.OUT }.sumOf { it.amount }
+    val background = Brush.verticalGradient(listOf(Color(0xFFE8EDFF), LightBackground))
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTransaction,
                 containerColor = Primary,
-                contentColor = DarkBackground,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add Transaction")
-            }
+                contentColor = Color.White,
+                shape = RoundedCornerShape(18.dp)
+            ) { Icon(Icons.Rounded.Add, contentDescription = "Add transaction") }
         }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+    ) { scaffoldPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().background(background),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = scaffoldPadding.calculateTopPadding() + 22.dp,
+                bottom = 110.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header
-            Text(
-                text = "Transactions",
-                style = MaterialTheme.typography.displayMedium.copy(
+            item {
+                Text(
+                    "Mutations",
+                    style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold
-                ),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-            )
-
-            if (state.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Primary)
-                }
-            } else if (state.transactions.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.ReceiptLong,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = TextTertiary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "No transactions yet",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Tap the + button to add your first one",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextTertiary
-                        )
-                    }
-                }
-            } else {
-                // Group transactions by date
-                val grouped = state.transactions.groupBy { tx ->
-                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    sdf.format(Date(tx.date))
-                }
-
-                val dateLabelFormat = SimpleDateFormat("EEEE, MMM dd", Locale.getDefault())
-                val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
-                    Date(System.currentTimeMillis() - 86400000)
                 )
+                Text(
+                    "Filter a month, then print or save it as PDF",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
-                LazyColumn(
-                    contentPadding = PaddingValues(bottom = 100.dp)
-                ) {
-                    grouped.forEach { (dateKey, transactions) ->
-                        item(key = "header_$dateKey") {
-                            val label = when (dateKey) {
-                                today -> "Today"
-                                yesterday -> "Yesterday"
-                                else -> dateLabelFormat.format(
-                                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)!!
-                                )
+            item {
+                GlassCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            IconButton(onClick = viewModel::previousMonth) {
+                                Icon(Icons.Rounded.ChevronLeft, "Previous month")
                             }
                             Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = TextSecondary,
-                                modifier = Modifier.padding(
-                                    horizontal = 20.dp,
-                                    vertical = 8.dp
-                                )
+                                monthLabel,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
                             )
-                        }
-                        items(
-                            items = transactions,
-                            key = { it.id }
-                        ) { transaction ->
-                            val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = { value ->
-                                    if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.deleteTransaction(transaction.id)
-                                        true
-                                    } else false
-                                }
-                            )
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 20.dp, vertical = 4.dp)
-                                            .background(
-                                                ExpenseRed.copy(alpha = 0.2f),
-                                                RoundedCornerShape(16.dp)
-                                            ),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.Delete,
-                                            contentDescription = "Delete",
-                                            tint = ExpenseRed,
-                                            modifier = Modifier.padding(end = 20.dp)
-                                        )
-                                    }
-                                },
-                                enableDismissFromStartToEnd = false
-                            ) {
-                                TransactionItem(
-                                    transaction = transaction,
-                                    formatAmount = viewModel::formatAmount,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                                    onClick = { onEditTransaction(transaction.id) }
-                                )
+                            IconButton(onClick = viewModel::nextMonth) {
+                                Icon(Icons.Rounded.ChevronRight, "Next month")
                             }
                         }
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Income", color = TextTertiary, style = MaterialTheme.typography.labelMedium)
+                                Text("+${viewModel.formatAmount(income)}", color = IncomeGreen, fontWeight = FontWeight.Bold)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Expense", color = TextTertiary, style = MaterialTheme.typography.labelMedium)
+                                Text("-${viewModel.formatAmount(expense)}", color = ExpenseRed, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = {
+                                TransactionReportPrinter.print(
+                                    context,
+                                    state.selectedMonth,
+                                    state.transactions
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Rounded.Print, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Print $monthLabel")
+                        }
                     }
+                }
+            }
+
+            when {
+                state.isLoading -> item {
+                    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary)
+                    }
+                }
+
+                state.errorMessage != null -> item {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Text(
+                            state.errorMessage.orEmpty(),
+                            modifier = Modifier.padding(20.dp),
+                            color = ExpenseRed
+                        )
+                    }
+                }
+
+                state.transactions.isEmpty() -> item {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Rounded.ReceiptLong,
+                                contentDescription = null,
+                                tint = TextTertiary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text("No mutations in $monthLabel", color = TextSecondary)
+                        }
+                    }
+                }
+            }
+
+            items(state.transactions, key = { it.id }) { transaction ->
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                            viewModel.deleteTransaction(transaction.id)
+                            true
+                        } else false
+                    }
+                )
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    backgroundContent = {
+                        Box(
+                            Modifier.fillMaxSize().padding(end = 18.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(Icons.Rounded.Delete, "Delete", tint = ExpenseRed)
+                        }
+                    }
+                ) {
+                    TransactionItem(
+                        transaction = transaction,
+                        formatAmount = viewModel::formatAmount,
+                        onClick = { onEditTransaction(transaction.id) }
+                    )
                 }
             }
         }

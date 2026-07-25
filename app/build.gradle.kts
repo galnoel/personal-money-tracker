@@ -4,7 +4,27 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
+
+val localEnvironment = rootProject.file(".env")
+    .takeIf { it.exists() }
+    ?.readLines()
+    ?.mapNotNull { line ->
+        val trimmed = line.trim()
+        if (trimmed.isBlank() || trimmed.startsWith("#") || !trimmed.contains("=")) null
+        else trimmed.substringBefore("=").trim() to trimmed.substringAfter("=").trim()
+            .removeSurrounding("\"")
+            .removeSurrounding("'")
+    }
+    ?.toMap()
+    .orEmpty()
+
+fun configuredValue(name: String): String =
+    System.getenv(name) ?: localEnvironment[name].orEmpty()
+
+fun String.asBuildConfigString(): String =
+    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 android {
     namespace = "com.tracker"
@@ -16,6 +36,12 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "SUPABASE_URL", configuredValue("SUPABASE_URL").asBuildConfigString())
+        buildConfigField(
+            "String",
+            "SUPABASE_PUBLISHABLE_KEY",
+            configuredValue("SUPABASE_PUBLISHABLE_KEY").asBuildConfigString()
+        )
     }
 
     buildTypes {
@@ -39,6 +65,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -63,10 +90,11 @@ dependencies {
     // Navigation
     implementation(libs.androidx.navigation.compose)
 
-    // Room
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
+    // Supabase (remote persistence)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.ktor.client.android)
 
     // Hilt
     implementation(libs.hilt.android)

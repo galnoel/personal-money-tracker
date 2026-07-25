@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -22,6 +23,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tracker.ui.auth.AuthScreen
+import com.tracker.ui.auth.AuthViewModel
 import com.tracker.ui.dashboard.DashboardScreen
 import com.tracker.ui.navigation.Screen
 import com.tracker.ui.navigation.bottomNavItems
@@ -38,7 +43,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MoneyTrackerTheme {
-                MainApp(
+                MoneyTrackerRoot(
                     onAddTransaction = {
                         startActivity(Intent(this, QuickInputActivity::class.java))
                     },
@@ -56,19 +61,61 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+fun MoneyTrackerRoot(
+    onAddTransaction: () -> Unit,
+    onEditTransaction: (Long) -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel()
+) {
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+
+    when {
+        authState.isInitializing -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(LightBackground),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Primary)
+            }
+        }
+        authState.isAuthenticated -> {
+            MainApp(
+                onAddTransaction = onAddTransaction,
+                onEditTransaction = onEditTransaction,
+                accountEmail = authState.accountEmail,
+                onSignOut = authViewModel::signOut
+            )
+        }
+        else -> {
+            AuthScreen(
+                state = authState,
+                onModeChange = authViewModel::setMode,
+                onEmailChange = authViewModel::setEmail,
+                onPasswordChange = authViewModel::setPassword,
+                onConfirmPasswordChange = authViewModel::setConfirmPassword,
+                onSubmit = authViewModel::submit
+            )
+        }
+    }
+}
+
+@Composable
 fun MainApp(
     onAddTransaction: () -> Unit,
-    onEditTransaction: (Long) -> Unit
+    onEditTransaction: (Long) -> Unit,
+    accountEmail: String?,
+    onSignOut: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = LightBackground,
         bottomBar = {
             NavigationBar(
-                containerColor = DarkSurface,
+                containerColor = Color.White.copy(alpha = 0.94f),
                 tonalElevation = 0.dp,
                 modifier = Modifier
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
@@ -94,7 +141,7 @@ fun MainApp(
                                         Icon(
                                             Icons.Rounded.Add,
                                             contentDescription = "Add",
-                                            tint = DarkBackground,
+                                            tint = Color.White,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -102,7 +149,7 @@ fun MainApp(
                             },
                             label = { Text("Add") },
                             colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = DarkSurface
+                                indicatorColor = Color.Transparent
                             )
                         )
                     }
@@ -149,6 +196,8 @@ fun MainApp(
         ) {
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
+                    accountEmail = accountEmail,
+                    onSignOut = onSignOut,
                     onNavigateToTransactions = {
                         navController.navigate(Screen.Transactions.route)
                     }

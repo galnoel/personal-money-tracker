@@ -1,6 +1,6 @@
 package com.tracker.domain.repository
 
-import com.tracker.data.dao.CategoryTotal
+import com.tracker.domain.model.CategoryTotal
 import com.tracker.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
 
@@ -15,4 +15,5 @@ interface TransactionRepository {
     suspend fun insertTransaction(transaction: Transaction): Long
     suspend fun updateTransaction(transaction: Transaction)
     suspend fun deleteTransaction(id: Long)
+    suspend fun refresh()
 }

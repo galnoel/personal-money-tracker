@@ -1,37 +1,39 @@
 package com.tracker.di
 
-import android.content.Context
-import androidx.room.Room
-import com.tracker.data.dao.TransactionDao
-import com.tracker.data.database.AppDatabase
+import com.tracker.BuildConfig
 import com.tracker.data.repository.TransactionRepositoryImpl
 import com.tracker.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object DatabaseModule {
+object SupabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            AppDatabase.DATABASE_NAME
-        ).build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideTransactionDao(database: AppDatabase): TransactionDao {
-        return database.transactionDao()
+    fun provideSupabaseClient(): SupabaseClient {
+        check(BuildConfig.SUPABASE_URL.isNotBlank()) {
+            "SUPABASE_URL is missing. Add it to the project .env file."
+        }
+        check(BuildConfig.SUPABASE_PUBLISHABLE_KEY.isNotBlank()) {
+            "SUPABASE_PUBLISHABLE_KEY is missing. Add it to the project .env file."
+        }
+        return createSupabaseClient(
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY
+        ) {
+            install(Auth)
+            install(Postgrest)
+        }
     }
 }
 
