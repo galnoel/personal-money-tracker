@@ -21,6 +21,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.runtime.Composable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,15 +51,7 @@ class QuickInputActivity : ComponentActivity() {
         lifecycleScope.launch {
             supabase.auth.awaitInitialization()
             val user = supabase.auth.currentUserOrNull()
-            if (user?.email.isNullOrBlank()) {
-                startActivity(
-                    Intent(this@QuickInputActivity, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                )
-                finish()
-                return@launch
-            }
+            val isAuthenticated = !user?.email.isNullOrBlank()
 
             setContent {
                 val preferences by preferencesRepository.preferences.collectAsStateWithLifecycle(
@@ -58,9 +63,22 @@ class QuickInputActivity : ComponentActivity() {
                     }.getOrDefault(Primary)
                 }
                 MoneyTrackerTheme(accent = accent) {
-                    QuickInputScreen(
-                        onDismiss = { finish() }
-                    )
+                    if (isAuthenticated) {
+                        QuickInputScreen(onDismiss = { finish() })
+                    } else {
+                        AuthenticationRequiredPopup(
+                            onDismiss = { finish() },
+                            onSignIn = {
+                                startActivity(
+                                    Intent(this@QuickInputActivity, MainActivity::class.java).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                    }
+                                )
+                                finish()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -74,5 +92,75 @@ class QuickInputActivity : ComponentActivity() {
         attributes.dimAmount = 0.45f
 
         window.attributes = attributes
+    }
+}
+
+@Composable
+private fun AuthenticationRequiredPopup(
+    onDismiss: () -> Unit,
+    onSignIn: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ComposeColor.Black.copy(alpha = 0.22f))
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .padding(24.dp)
+                .fillMaxWidth()
+                .widthIn(max = 380.dp)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {},
+            shape = RoundedCornerShape(26.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(
+                        Icons.Rounded.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(14.dp).size(28.dp)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Sign in to add money",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Your launcher will stay open until you choose to sign in.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = onSignIn,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Open sign in")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Not now")
+                }
+            }
+        }
     }
 }

@@ -60,9 +60,9 @@ class AccountRepositoryImpl @Inject constructor(
         emitAll(transferCache.observe(user).map { rows -> rows.map(CachedTransfer::domain) })
     }
 
-    override fun getAccountBalances(): Flow<List<AccountBalance>> =
+    override fun getAccountBalances(includeArchived: Boolean): Flow<List<AccountBalance>> =
         combine(getAccounts(), getTransfers(), transactions.getAllTransactions()) { accounts, transfers, txs ->
-            accounts.filterNot { it.archived }.sortedBy { it.sortOrder }.map { account ->
+            accounts.filter { includeArchived || !it.archived }.sortedBy { it.sortOrder }.map { account ->
                 val activity = txs.filter {
                     it.accountId == account.id ||
                         (it.accountId == null && it.paymentMethod.equals(account.name, true))
@@ -112,7 +112,10 @@ class AccountRepositoryImpl @Inject constructor(
         scheduleSync()
     }
 
-    override suspend fun archiveAccount(id: String) = mutateAccount(id) { it.copy(archived = true) }
+    override suspend fun archiveAccount(id: String) = setAccountArchived(id, true)
+
+    override suspend fun setAccountArchived(id: String, archived: Boolean) =
+        mutateAccount(id) { it.copy(archived = archived) }
 
     override suspend fun reconcileAccount(id: String, desiredBalance: Long) {
         val current = getAccountBalances().first().first { it.account.id == id }

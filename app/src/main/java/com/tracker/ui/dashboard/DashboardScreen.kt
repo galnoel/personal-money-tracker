@@ -255,40 +255,6 @@ fun DashboardScreen(
             }
 
             item {
-                Column {
-                    Text(
-                        "Movement period",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        PeriodType.entries.forEach { period ->
-                            val selected = period == state.selectedPeriod
-                            Surface(
-                                onClick = { viewModel.selectPeriod(period) },
-                                shape = RoundedCornerShape(50),
-                                color = if (selected) accent else LightSurface,
-                                shadowElevation = if (selected) 5.dp else 0.dp
-                            ) {
-                                Text(
-                                    period.label,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                                    color = if (selected) Color.White else TextSecondary,
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
                 NeumorphicCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp)) {
                         Text(
@@ -339,6 +305,40 @@ fun DashboardScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = TextTertiary
                         )
+                    }
+                }
+            }
+
+            item {
+                Column {
+                    Text(
+                        "Movement period",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PeriodType.entries.forEach { period ->
+                            val selected = period == state.selectedPeriod
+                            Surface(
+                                onClick = { viewModel.selectPeriod(period) },
+                                shape = RoundedCornerShape(50),
+                                color = if (selected) accent else LightSurface,
+                                shadowElevation = if (selected) 5.dp else 0.dp
+                            ) {
+                                Text(
+                                    period.label,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                                    color = if (selected) Color.White else TextSecondary,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
                     }
                 }
             }

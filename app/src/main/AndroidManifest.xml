@@ -27,7 +27,10 @@
             android:exported="false"
             android:theme="@style/Theme.MoneyTracker.Translucent"
             android:excludeFromRecents="true"
-            android:launchMode="singleTop" />
+            android:finishOnTaskLaunch="true"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:taskAffinity="com.tracker.moneytracker.quickinput" />
 
         <receiver
             android:name=".widget.MoneyTrackerWidgetReceiver"

@@ -56,7 +56,6 @@ import com.tracker.ui.dashboard.TransactionItem
 import com.tracker.ui.theme.ExpenseRed
 import com.tracker.ui.theme.IncomeGreen
 import com.tracker.ui.theme.LightBackground
-import com.tracker.ui.theme.Primary
 import com.tracker.ui.theme.TextSecondary
 import com.tracker.ui.theme.TextTertiary
 import java.time.format.DateTimeFormatter
@@ -68,6 +67,7 @@ fun TransactionListScreen(
     onEditTransaction: (Long) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val accent = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
     val monthLabel = state.selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
     val income = state.transactions.filter { it.type == TransactionType.IN }.sumOf { it.amount }
@@ -79,7 +79,7 @@ fun TransactionListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTransaction,
-                containerColor = Primary,
+                containerColor = accent,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(18.dp)
             ) { Icon(Icons.Rounded.Add, contentDescription = "Add transaction") }
@@ -153,7 +153,7 @@ fun TransactionListScreen(
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                            colors = ButtonDefaults.buttonColors(containerColor = accent),
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Icon(Icons.Rounded.Print, contentDescription = null)
@@ -167,7 +167,7 @@ fun TransactionListScreen(
             when {
                 state.isLoading -> item {
                     Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Primary)
+                        CircularProgressIndicator(color = accent)
                     }
                 }
 

@@ -37,7 +37,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            accountsRepository.getAccountBalances().catch {
+            accountsRepository.getAccountBalances(includeArchived = true).catch {
                 _state.update { state -> state.copy(message = it.message) }
             }.collect { accounts -> _state.update { it.copy(accounts = accounts) } }
         }
@@ -49,9 +49,13 @@ class SettingsViewModel @Inject constructor(
     fun create(name: String, opening: Long = 0) = run { accountsRepository.createAccount(name, opening) }
     fun rename(id: String, name: String) = run { accountsRepository.renameAccount(id, name) }
     fun archive(id: String) = run { accountsRepository.archiveAccount(id) }
+    fun unarchive(id: String) = run { accountsRepository.setAccountArchived(id, false) }
     fun reconcile(id: String, balance: Long) = run { accountsRepository.reconcileAccount(id, balance) }
     fun move(id: String, direction: Int) = run {
-        val ids = _state.value.accounts.map { it.account.id }.toMutableList()
+        val ids = _state.value.accounts
+            .filterNot { it.account.archived }
+            .map { it.account.id }
+            .toMutableList()
         val from = ids.indexOf(id)
         val to = (from + direction).coerceIn(ids.indices)
         if (from >= 0 && from != to) {

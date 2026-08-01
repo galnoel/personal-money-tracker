@@ -1,16 +1,19 @@
 package com.tracker.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.action.actionStartActivity
+import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -39,30 +42,37 @@ class MoneyTrackerWidget : GlanceAppWidget() {
 
     @Composable
     private fun QuickAddButton(accentColor: Color) {
-        val surface = ColorProvider(Color(0xFFE9EEF5))
         val accent = ColorProvider(accentColor)
         val white = ColorProvider(Color.White)
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .cornerRadius(20.dp)
-                .background(surface)
-                .padding(8.dp)
-                .clickable(actionStartActivity<QuickInputActivity>()),
+                .background(white)
+                .padding(6.dp)
+                .clickable(actionRunCallback<OpenQuickInputAction>()),
             contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .cornerRadius(16.dp)
-                    .background(accent),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "+",
-                    style = TextStyle(color = white, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                )
-            }
+            Text(
+                "+",
+                style = TextStyle(color = accent, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            )
         }
+    }
+}
+
+class OpenQuickInputAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        context.startActivity(
+            Intent(context, QuickInputActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_NO_ANIMATION
+            }
+        )
     }
 }

@@ -94,7 +94,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
         }
-        items(state.accounts, key = { it.account.id }) { item ->
+        items(state.accounts.filterNot { it.account.archived }, key = { it.account.id }) { item ->
             var showActions by remember(item.account.id) { mutableStateOf(false) }
             NeumorphicCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -134,6 +134,49 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                                 leadingIcon = { Icon(Icons.Rounded.Archive, null) },
                                 onClick = { dialog = AccountDialog.Archive(item.account.id, item.account.name); showActions = false }
                             )
+                        }
+                    }
+                }
+            }
+        }
+        if (state.accounts.any { it.account.archived }) {
+            item {
+                Column {
+                    Text(
+                        "Archived accounts",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Hidden from Dashboard and Quick Add",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            items(state.accounts.filter { it.account.archived }, key = { "archived-${it.account.id}" }) { item ->
+                NeumorphicCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.Inventory2,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.account.name, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                formatCents(item.balance, state.preferences.currencyCode),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        FilledTonalButton(onClick = { viewModel.unarchive(item.account.id) }) {
+                            Icon(Icons.Rounded.Unarchive, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Restore")
                         }
                     }
                 }
