@@ -1,10 +1,9 @@
 package com.tracker.domain.model
 
 enum class PeriodType(val label: String) {
-    ALL("All time"),
-    DAY("Day"),
+    DAY("Today"),
     WEEK("Week"),
     MONTH("Month"),
-    SIX_MONTHS("6 Months"),
+    SIX_MONTHS("Semester"),
     YEAR("Year")
 }

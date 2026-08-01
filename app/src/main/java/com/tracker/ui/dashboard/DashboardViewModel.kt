@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tracker.domain.model.CategoryTotal
 import com.tracker.domain.model.AccountBalance
-import com.tracker.domain.model.ChartMode
 import com.tracker.domain.model.ChartPoint
 import com.tracker.domain.model.SyncStatus
 import com.tracker.domain.model.PeriodType
@@ -37,9 +36,7 @@ data class DashboardUiState(
     val recentTransactions: List<Transaction> = emptyList(),
     val periodLabel: String = "",
     val accountBalances: List<AccountBalance> = emptyList(),
-    val chartMode: ChartMode = ChartMode.Month,
-    val chartOffset: Int = 0,
-    val chartPeriodLabel: String = "",
+    val periodOffset: Int = 0,
     val chartPoints: List<ChartPoint> = emptyList(),
     val currencyCode: String = "SGD",
     val syncStatus: SyncStatus = SyncStatus.Synced,
@@ -55,8 +52,7 @@ class DashboardViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val selectedPeriod = MutableStateFlow(PeriodType.MONTH)
-    private val chartMode = MutableStateFlow(ChartMode.Month)
-    private val chartOffset = MutableStateFlow(0)
+    private val periodOffset = MutableStateFlow(0)
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
@@ -74,12 +70,11 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 selectedPeriod,
-                chartMode,
-                chartOffset,
+                periodOffset,
                 repository.getAllTransactions(),
                 accountsRepository.getAccountBalances()
-            ) { period, mode, offset, all, accountBalances ->
-                    val filtered = filterForPeriod(all, period)
+            ) { period, offset, all, accountBalances ->
+                    val filtered = filterForPeriod(all, period, offset)
                     val income = filtered.filter { it.type == TransactionType.IN }.sumOf { it.amount }
                     val expense = filtered.filter { it.type == TransactionType.OUT }.sumOf { it.amount }
                     val lifetimeIncome = all.filter { it.type == TransactionType.IN }.sumOf { it.amount }
@@ -99,12 +94,10 @@ class DashboardViewModel @Inject constructor(
                             }
                             .sortedByDescending { it.total },
                         recentTransactions = all.take(5),
-                        periodLabel = periodLabel(period),
+                        periodLabel = periodLabel(period, offset),
                         accountBalances = accountBalances,
-                        chartMode = mode,
-                        chartOffset = offset,
-                        chartPeriodLabel = chartPeriodLabel(mode, offset),
-                        chartPoints = buildChart(all, mode, offset),
+                        periodOffset = offset,
+                        chartPoints = buildChart(filtered, period, offset),
                         currencyCode = _uiState.value.currencyCode,
                         syncStatus = repository.syncStatus.value,
                         isLoading = false
@@ -122,18 +115,15 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun selectChartMode(mode: ChartMode) {
-        chartMode.value = mode
-        chartOffset.value = 0
-    }
-
-    fun previousChartPeriod() { chartOffset.value -= 1 }
-    fun nextChartPeriod() {
-        if (chartOffset.value < 0) chartOffset.value += 1
-    }
-
     fun selectPeriod(period: PeriodType) {
         selectedPeriod.value = period
+        periodOffset.value = 0
+    }
+
+    fun previousPeriod() { periodOffset.value -= 1 }
+
+    fun nextPeriod() {
+        if (periodOffset.value < 0) periodOffset.value += 1
     }
 
     fun retry() {
@@ -164,43 +154,41 @@ class DashboardViewModel @Inject constructor(
         return "$symbol ${formatAmount(cents)}"
     }
 
-    private fun buildChart(all: List<Transaction>, mode: ChartMode, offset: Int): List<ChartPoint> {
+    private fun buildChart(
+        transactions: List<Transaction>,
+        period: PeriodType,
+        offset: Int
+    ): List<ChartPoint> {
         val zone = ZoneId.systemDefault()
-        val today = LocalDate.now()
-        val start = when (mode) {
-            ChartMode.Day -> today.plusDays(offset.toLong()).atStartOfDay()
-            ChartMode.Month -> today.plusMonths(offset.toLong()).withDayOfMonth(1).atStartOfDay()
-            ChartMode.Year -> today.plusYears(offset.toLong()).withDayOfYear(1).atStartOfDay()
-        }
-        val count = when (mode) {
-            ChartMode.Day -> 24
-            ChartMode.Month -> start.toLocalDate().lengthOfMonth()
-            ChartMode.Year -> 12
-        }
-        val filtered = all.filter {
-            val local = java.time.Instant.ofEpochMilli(it.date).atZone(zone).toLocalDateTime()
-            when (mode) {
-                ChartMode.Day -> local.toLocalDate() == start.toLocalDate()
-                ChartMode.Month -> local.year == start.year && local.month == start.month
-                ChartMode.Year -> local.year == start.year
-            }
+        val start = periodDates(period, offset).first
+        val count = when (period) {
+            PeriodType.DAY -> 24
+            PeriodType.WEEK -> 7
+            PeriodType.MONTH -> start.lengthOfMonth()
+            PeriodType.SIX_MONTHS -> 6
+            PeriodType.YEAR -> 12
         }
         return (0 until count).map { index ->
-            val bucket = filtered.filter {
+            val bucket = transactions.filter {
                 val local = java.time.Instant.ofEpochMilli(it.date).atZone(zone).toLocalDateTime()
-                when (mode) {
-                    ChartMode.Day -> local.hour == index
-                    ChartMode.Month -> local.dayOfMonth == index + 1
-                    ChartMode.Year -> local.monthValue == index + 1
+                when (period) {
+                    PeriodType.DAY -> local.hour == index
+                    PeriodType.WEEK -> local.toLocalDate() == start.plusDays(index.toLong())
+                    PeriodType.MONTH -> local.dayOfMonth == index + 1
+                    PeriodType.SIX_MONTHS,
+                    PeriodType.YEAR -> local.toLocalDate().withDayOfMonth(1) ==
+                        start.plusMonths(index.toLong())
                 }
             }
             ChartPoint(
-                label = when (mode) {
-                    ChartMode.Day -> String.format("%02d:00", index)
-                    ChartMode.Month -> (index + 1).toString()
-                    ChartMode.Year -> java.time.Month.of(index + 1).getDisplayName(
-                        java.time.format.TextStyle.SHORT, Locale.getDefault()
-                    )
+                label = when (period) {
+                    PeriodType.DAY -> String.format("%02d:00", index)
+                    PeriodType.WEEK -> start.plusDays(index.toLong())
+                        .format(DateTimeFormatter.ofPattern("EEE d"))
+                    PeriodType.MONTH -> (index + 1).toString()
+                    PeriodType.SIX_MONTHS,
+                    PeriodType.YEAR -> start.plusMonths(index.toLong())
+                        .format(DateTimeFormatter.ofPattern("MMM"))
                 },
                 income = bucket.filter { it.type == TransactionType.IN }.sumOf { it.amount },
                 expense = bucket.filter { it.type == TransactionType.OUT }.sumOf { it.amount }
@@ -208,55 +196,73 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private fun chartPeriodLabel(mode: ChartMode, offset: Int): String {
-        val today = LocalDate.now()
-        return when (mode) {
-            ChartMode.Day -> today.plusDays(offset.toLong()).format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
-            ChartMode.Month -> today.plusMonths(offset.toLong()).format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-            ChartMode.Year -> today.plusYears(offset.toLong()).year.toString()
-        }
-    }
-
     private fun filterForPeriod(
         transactions: List<Transaction>,
-        period: PeriodType
+        period: PeriodType,
+        offset: Int
     ): List<Transaction> {
-        if (period == PeriodType.ALL) return transactions
-        val (start, end) = dateRange(period)
+        val (start, end) = dateRange(period, offset)
         return transactions.filter { it.date in start until end }
     }
 
-    private fun dateRange(period: PeriodType): Pair<Long, Long> {
+    private fun dateRange(period: PeriodType, offset: Int): Pair<Long, Long> {
         val zone = ZoneId.systemDefault()
-        val now = LocalDate.now()
-        val (start, end) = when (period) {
-            PeriodType.ALL -> LocalDate.of(1970, 1, 1).atStartOfDay() to
-                LocalDate.of(3000, 1, 1).atStartOfDay()
-            PeriodType.DAY -> now.atStartOfDay() to now.plusDays(1).atStartOfDay()
-            PeriodType.WEEK -> {
-                val weekStart = now.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
-                weekStart.atStartOfDay() to weekStart.plusWeeks(1).atStartOfDay()
-            }
-            PeriodType.MONTH -> now.withDayOfMonth(1).atStartOfDay() to
-                now.plusMonths(1).withDayOfMonth(1).atStartOfDay()
-            PeriodType.SIX_MONTHS -> now.minusMonths(5).withDayOfMonth(1).atStartOfDay() to
-                now.plusMonths(1).withDayOfMonth(1).atStartOfDay()
-            PeriodType.YEAR -> now.withDayOfYear(1).atStartOfDay() to
-                now.plusYears(1).withDayOfYear(1).atStartOfDay()
-        }
-        return start.atZone(zone).toInstant().toEpochMilli() to
-            end.atZone(zone).toInstant().toEpochMilli()
+        val (start, end) = periodDates(period, offset)
+        return start.atStartOfDay(zone).toInstant().toEpochMilli() to
+            end.atStartOfDay(zone).toInstant().toEpochMilli()
     }
 
-    private fun periodLabel(period: PeriodType): String {
-        val now = LocalDate.now()
+    private fun periodDates(period: PeriodType, offset: Int): Pair<LocalDate, LocalDate> {
+        val today = LocalDate.now()
         return when (period) {
-            PeriodType.ALL -> "Across every transaction"
-            PeriodType.DAY -> now.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-            PeriodType.WEEK -> "This week"
-            PeriodType.MONTH -> now.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-            PeriodType.SIX_MONTHS -> "Last 6 months"
-            PeriodType.YEAR -> now.year.toString()
+            PeriodType.DAY -> {
+                val start = today.plusDays(offset.toLong())
+                start to start.plusDays(1)
+            }
+            PeriodType.WEEK -> {
+                val start = today
+                    .with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1)
+                    .plusWeeks(offset.toLong())
+                start to start.plusWeeks(1)
+            }
+            PeriodType.MONTH -> {
+                val start = today.withDayOfMonth(1).plusMonths(offset.toLong())
+                start to start.plusMonths(1)
+            }
+            PeriodType.SIX_MONTHS -> {
+                val currentStartMonth = if (today.monthValue <= 6) 1 else 7
+                val start = today.withMonth(currentStartMonth).withDayOfMonth(1)
+                    .plusMonths(offset.toLong() * 6)
+                start to start.plusMonths(6)
+            }
+            PeriodType.YEAR -> {
+                val start = today.withDayOfYear(1).plusYears(offset.toLong())
+                start to start.plusYears(1)
+            }
+        }
+    }
+
+    private fun periodLabel(period: PeriodType, offset: Int): String {
+        val (start, endExclusive) = periodDates(period, offset)
+        val end = endExclusive.minusDays(1)
+        return when (period) {
+            PeriodType.DAY -> if (offset == 0) {
+                "Today - ${start.format(DateTimeFormatter.ofPattern("d MMM yyyy"))}"
+            } else {
+                start.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+            }
+            PeriodType.WEEK -> if (start.year == end.year) {
+                "${start.format(DateTimeFormatter.ofPattern("d MMM"))} - " +
+                    end.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+            } else {
+                "${start.format(DateTimeFormatter.ofPattern("d MMM yyyy"))} - " +
+                    end.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+            }
+            PeriodType.MONTH -> start.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+            PeriodType.SIX_MONTHS ->
+                "${start.format(DateTimeFormatter.ofPattern("MMM"))} - " +
+                    end.format(DateTimeFormatter.ofPattern("MMM yyyy"))
+            PeriodType.YEAR -> start.year.toString()
         }
     }
 }

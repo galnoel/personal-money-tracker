@@ -41,7 +41,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -50,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,7 +58,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tracker.domain.model.PeriodType
 import com.tracker.domain.model.Transaction
 import com.tracker.domain.model.TransactionType
-import com.tracker.domain.model.ChartMode
 import com.tracker.domain.model.SyncStatus
 import com.tracker.ui.components.CategoryIcons
 import com.tracker.ui.components.NeumorphicCard
@@ -255,64 +254,9 @@ fun DashboardScreen(
             }
 
             item {
-                NeumorphicCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(18.dp)) {
-                        Text(
-                            "Cash flow trend",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ChartMode.entries.forEach { mode ->
-                                FilterChip(
-                                    selected = mode == state.chartMode,
-                                    onClick = { viewModel.selectChartMode(mode) },
-                                    label = { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) }
-                                )
-                            }
-                        }
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(onClick = viewModel::previousChartPeriod, shape = CircleShape) {
-                                Icon(Icons.Rounded.ChevronLeft, "Previous period", Modifier.padding(8.dp))
-                            }
-                            Text(state.chartPeriodLabel, fontWeight = FontWeight.SemiBold)
-                            Surface(
-                                onClick = viewModel::nextChartPeriod,
-                                enabled = state.chartOffset < 0,
-                                shape = CircleShape
-                            ) {
-                                Icon(
-                                    Icons.Rounded.ChevronRight,
-                                    "Next period",
-                                    Modifier.padding(8.dp),
-                                    tint = if (state.chartOffset < 0) TextPrimary else TextTertiary
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        CashFlowChart(
-                            points = state.chartPoints,
-                            formatMoney = viewModel::formatMoney,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            "Tap the chart to inspect income, expense, and net movement.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextTertiary
-                        )
-                    }
-                }
-            }
-
-            item {
                 Column {
                     Text(
-                        "Movement period",
+                        "View period",
                         style = MaterialTheme.typography.labelLarge,
                         color = TextSecondary
                     )
@@ -340,15 +284,83 @@ fun DashboardScreen(
                             }
                         }
                     }
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(onClick = viewModel::previousPeriod, shape = CircleShape) {
+                            Icon(Icons.Rounded.ChevronLeft, "Previous period", Modifier.padding(8.dp))
+                        }
+                        Text(
+                            state.periodLabel,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        )
+                        Surface(
+                            onClick = viewModel::nextPeriod,
+                            enabled = state.periodOffset < 0,
+                            shape = CircleShape
+                        ) {
+                            Icon(
+                                Icons.Rounded.ChevronRight,
+                                "Next period",
+                                Modifier.padding(8.dp),
+                                tint = if (state.periodOffset < 0) TextPrimary else TextTertiary
+                            )
+                        }
+                    }
+                    Text(
+                        "This selection applies to both cash flow trend and movement.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary
+                    )
+                }
+            }
+
+            item {
+                NeumorphicCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(18.dp)) {
+                        Text(
+                            "Cash flow trend",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            state.periodLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        CashFlowChart(
+                            points = state.chartPoints,
+                            formatMoney = viewModel::formatMoney,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            "Tap the chart to inspect income, expense, and net movement.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextTertiary
+                        )
+                    }
                 }
             }
 
             item {
                 Column {
                     Text(
-                        state.periodLabel,
+                        "Movement",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        state.periodLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
                     )
                     Spacer(Modifier.height(10.dp))
                     Row(

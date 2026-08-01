@@ -8,8 +8,6 @@ data class UserPreferences(
 
 enum class SyncStatus { Synced, Syncing, Offline, Failed }
 
-enum class ChartMode { Day, Month, Year }
-
 data class ChartPoint(
     val label: String,
     val income: Long,
